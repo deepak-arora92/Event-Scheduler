@@ -1,0 +1,153 @@
+{% load staticfiles %}
+<html lang="en">
+<head>
+    <title id='Description'>Event Scheduler</title>
+    <link rel="stylesheet" href="{% static 'css/jqx.base.css' %}" type="text/css" />
+    <script src="{% static 'js/jquery-1.11.1.min.js' %}"></script>
+    <script type="text/javascript" src="{% static 'js/jquery-1.11.1.min.js' %}"></script>
+    <script type="text/javascript" src="{% static 'js/demos.js' %}"></script>
+    <script type="text/javascript" src="{% static 'js/jqxcore.js' %}"></script>
+    <script type="text/javascript" src="{% static 'js/jqxbuttons.js' %}"></script>
+    <script type="text/javascript" src="{% static 'js/jqxscrollbar.js' %}"></script>
+    <script type="text/javascript" src="{% static 'js/jqxdata.js' %}"></script>
+    <script type="text/javascript" src="{% static 'js/jqxdate.js' %}"></script>
+    <script type="text/javascript" src="{% static 'js/jqxscheduler.js' %}"></script>
+    <script type="text/javascript" src="{% static 'js/jqxscheduler.api.js' %}"></script>
+    <script type="text/javascript" src="{% static 'js/jqxdatetimeinput.js' %}"></script>
+    <script type="text/javascript" src="{% static 'js/jqxmenu.js' %}"></script>
+    <script type="text/javascript" src="{% static 'js/jqxcalendar.js' %}"></script>
+    <script type="text/javascript" src="{% static 'js/jqxtooltip.js' %}"></script>
+    <script type="text/javascript" src="{% static 'js/jqxwindow.js' %}"></script>
+    <script type="text/javascript" src="{% static 'js/jqxcheckbox.js' %}"></script>
+    <script type="text/javascript" src="{% static 'js/jqxlistbox.js' %}"></script>
+    <script type="text/javascript" src="{% static 'js/jqxdropdownlist.js' %}"></script>
+    <script type="text/javascript" src="{% static 'js/jqxnumberinput.js' %}"></script>
+    <script type="text/javascript" src="{% static 'js/jqxradiobutton.js' %}"></script>
+    <script type="text/javascript" src="{% static 'js/jqxinput.js' %}"></script>
+    <script type="text/javascript" src="{% static 'js/moment.js' %}"></script>
+    <script type="text/javascript">
+        $(document).ready(function () {
+            var events = $.parseJSON('{{events|safe}}')
+            var source =
+            {
+                dataType: "array",
+                dataFields: [
+                    { name: 'id', type: 'string' },
+                    { name: 'description', type: 'string' },
+                    { name: 'location', type: 'string' },
+                    { name: 'subject', type: 'string' },
+                    { name: 'calendar', type: 'string' },
+                    { name: 'start', type: 'date' },
+                    { name: 'end', type: 'date' },
+                    { name: 'background', type: 'string' },
+                    { name: 'allDay', type: 'boolean' }
+                ],
+                id: 'id',
+                localData: events
+            };
+            var adapter = new $.jqx.dataAdapter(source);
+            $("#scheduler").jqxScheduler({
+                date: new $.jqx.date(2016, 11, 23),
+                width: 850,
+                height: 600,
+                source: adapter,
+                view: 'monthView',
+                showLegend: true,
+                editDialogCreate: function (dialog, fields, editAppointment) {
+                    fields.statusContainer.hide();
+                    fields.timeZoneContainer.hide();
+                    fields.resourceContainer.hide();
+                    fields.repeatPanel.hide();
+                    fields.repeatContainer.hide();
+                    fields.subjectLabel.html("Event Name");
+                    fields.locationLabel.html("Location");
+                    fields.fromLabel.html("Starts");
+                    fields.toLabel.html("Ends");
+                },
+                ready: function () {
+                    $("#scheduler").jqxScheduler('ensureAppointmentVisible', 'id1');
+                },
+                resources:
+                {
+                    colorScheme: "scheme05",
+                    dataField: "calendar",
+                    source:  new $.jqx.dataAdapter(source)
+                },
+                appointmentDataFields:
+                {
+                    from: "start",
+                    to: "end",
+                    id: "id",
+                    description: "description",
+                    location: "location",
+                    subject: "subject",
+                    resourceId: "calendar",
+                    background : "background",
+                    allDay : "allDay"
+                },
+                views:
+                [
+                    'dayView',
+                    'weekView',
+                    'monthView'
+                ]
+            });
+            
+            $("#scheduler").on('appointmentAdd', function (event) {
+                var args = event.args;
+                var appointment = args.appointment;
+                CreateOrUpdateEvent(appointment,'create');
+            });
+            $("#scheduler").on('appointmentChange', function (event) {
+                var args = event.args;
+                var appointment = args.appointment;
+                CreateOrUpdateEvent(appointment,'update');
+            });
+            $("#scheduler").on('appointmentDelete', function (event) {
+                var args = event.args;
+                var appointment = args.appointment;
+                DeleteEvent(appointment);
+            }); 
+        });
+        function CreateOrUpdateEvent(event,eventType) {
+            var name = event.originalData.subject;
+            var location = event.originalData.location;
+            var start = moment(event.originalData.start).format('YYYY-MM-DD hh:mm:ss');
+            var end = moment(event.originalData.end).format('YYYY-MM-DD hh:mm:ss')
+            var description = event.originalData.description;
+            var allDay = event.jqxAppointment.allDay;
+            var background =  event.jqxAppointment.background;
+            if (eventType == 'create') {
+                 $.post('/createEvent', {name: name, location : location,start: start, end: end, description:description,background:background,allDay:allDay}, 
+                    function(response){
+                         console.log(response);
+                }).fail(function(){
+                      console.log("error");
+                });
+            }
+            else if (eventType == 'update') {
+                var id = event.originalData.id;
+                $.post('/ChangeEvent', {id:id, name: name, location : location,start: start, end: end, description:description,background:background,allDay:allDay}, 
+                    function(response){
+                         console.log(response);
+                }).fail(function(){
+                      console.log("error");
+                });
+            }
+        }
+        function DeleteEvent(event) {
+            var id = event.originalData.id;
+            $.post('/DeleteEvent', {id:id}, 
+                    function(response){
+                         console.log(response);
+                }).fail(function(){
+                      console.log("error");
+                });
+        }
+        
+    </script>
+</head>
+<body class='default'>
+    <div id="scheduler"></div>
+</body>
+</html>
